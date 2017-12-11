@@ -16,8 +16,8 @@ import re
 
 from data_util import GeneratorEnqueuer
 
-
 im_fn_ptn = re.compile(r"^(.*/)img_([0-9]*).[a-zA-Z]*$")
+
 
 def get_images(flags=None):
     files = []
@@ -552,18 +552,26 @@ def generate_rbox(im_size, polys, tags, flags=None):
         rectange, rotate_angle = sort_rectangle(rectange)
 
         p0_rect, p1_rect, p2_rect, p3_rect = rectange
-        for y, x in xy_in_poly:
-            point = np.array([x, y], dtype=np.float32)
-            # top
-            geo_map[y, x, 0] = point_dist_to_line(p0_rect, p1_rect, point)
-            # right
-            geo_map[y, x, 1] = point_dist_to_line(p1_rect, p2_rect, point)
-            # down
-            geo_map[y, x, 2] = point_dist_to_line(p2_rect, p3_rect, point)
-            # left
-            geo_map[y, x, 3] = point_dist_to_line(p3_rect, p0_rect, point)
-            # angle
+
+        def pdl(p1, p2, p3):
+            r = p2 - p1
+            q = p1 - p3
+            c = np.cross(r, q)
+            return np.abs(c) / np.linalg.norm(r)
+
+        xy = np.stack((xy_in_poly[:, 1], xy_in_poly[:, 0]), axis=-1)
+        gm0 = pdl(p0_rect, p1_rect, xy)
+        gm1 = pdl(p1_rect, p2_rect, xy)
+        gm2 = pdl(p2_rect, p3_rect, xy)
+        gm3 = pdl(p3_rect, p0_rect, xy)
+        for i, p in enumerate(xy_in_poly):
+            y, x = p
+            geo_map[y, x, 0] = gm0[i]
+            geo_map[y, x, 1] = gm1[i]
+            geo_map[y, x, 2] = gm2[i]
+            geo_map[y, x, 3] = gm3[i]
             geo_map[y, x, 4] = rotate_angle
+
     return score_map, geo_map, training_mask
 
 
@@ -572,7 +580,7 @@ def generator(input_size=512, batch_size=32,
               random_scale=np.array([0.5, 1, 2.0, 3.0]),
               vis=False, flags=None):
     image_list = np.array(get_images(flags=flags))
-    print('{} training images in {}'.format( image_list.shape[0], flags.training_data_path))
+    print('{} training images in {}'.format(image_list.shape[0], flags.training_data_path))
     index = np.arange(0, image_list.shape[0])
     while True:
         np.random.shuffle(index)
@@ -587,7 +595,7 @@ def generator(input_size=512, batch_size=32,
                 im = cv2.imread(im_fn)
                 h, w, _ = im.shape
                 matcher = im_fn_ptn.match(im_fn)
-                if matcher is None :
+                if matcher is None:
                     print('invalid image file {}'.format(txt_fn))
 
                 txt_fn = matcher.group(1) + 'gt_img_' + matcher.group(2) + '.txt'
