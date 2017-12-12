@@ -200,12 +200,8 @@ def resnet_v1(inputs,
                 end_points = slim.utils.convert_collection_to_dict(end_points_collection)
 
                 # end_points['pool2'] = end_points['resnet_v1_50/pool1/MaxPool:0']
-                try:
-                    end_points['pool3'] = end_points['resnet_v1_50/block1']
-                    end_points['pool4'] = end_points['resnet_v1_50/block2']
-                except:
-                    end_points['pool3'] = end_points['Detection/resnet_v1_50/block1']
-                    end_points['pool4'] = end_points['Detection/resnet_v1_50/block2']
+                end_points['pool3'] = end_points['detector/resnet_v1_50/block1']
+                end_points['pool4'] = end_points['detector/resnet_v1_50/block2']
                 end_points['pool5'] = net
                 # if global_pool:
                 #     # Global average pooling.
